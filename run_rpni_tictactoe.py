@@ -1,9 +1,13 @@
 import pandas as pd
 from aalpy.learning_algs import run_RPNI
+from aalpy.utils import save_automaton_to_file
 import time
-from sklearn.model_selection import train_test_split
+import sys
 import random
 random.seed(1)
+
+
+
 
 data = []
 with open("data/" + "accepted_words.csv", 'r') as f:
@@ -14,8 +18,12 @@ with open("data/" + "rejected_words.csv", 'r') as f:
         data.append((tuple(line.strip().split(",")), False))
 random.shuffle(data)
 
-train = data[:10000]
-test = data[10000:20000]
+if sys.argv[1] == "test":
+    train = data[:200]
+    test = data[100:200]
+else:
+    train = data[:int(len(data) * 0.5)]
+    test = data[int(len(data) * 0.5):]
 
 
 start = time.time()
@@ -31,4 +39,4 @@ for seq, l in test:
     if model.execute_sequence(model.initial_state, seq)[-1] == l:
         acc += 1
 print("accuracy test:", acc/len(test))
-model.visualize()
+save_automaton_to_file(model, path="tic_tac_toe_model")
