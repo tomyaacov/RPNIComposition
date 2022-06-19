@@ -12,6 +12,6 @@
 
 ### Start you code below ####
 module load anaconda ### load anaconda module
-source activate RPNIComposition
+conda activate RPNIComposition
 cd ~/repos/RPNIComposition/
 python run_rpni_tictactoe.py test
