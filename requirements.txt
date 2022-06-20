@@ -1,4 +1,5 @@
 aalpy==1.2.8
+bppy==0.0.1
 iteration-utilities==0.11.0
 joblib==1.1.0
 numpy==1.21.6
@@ -11,3 +12,4 @@ scikit-learn==1.0.2
 scipy==1.7.3
 six==1.16.0
 threadpoolctl==3.1.0
+z3-solver==4.8.17.0
