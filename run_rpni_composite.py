@@ -65,3 +65,4 @@ print("accuracy test any:", acc_any/len(data))
 
 for i in range(len(models)):
     models[i].visualize(path="model_" + str(i))
+

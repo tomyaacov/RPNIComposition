@@ -11,23 +11,50 @@ df = pd.read_csv("data/tic-tac-toe-endgame.csv")
 MAX_SEQUENCE_LENGTH = 9
 MIN_SEQUENCE_LENGTH = 9
 DICTIONARY = ["X"+str(x) for x in range(9)] + ["O"+str(x) for x in range(9)]
+ROWS = [["0", "1", "2"], ["3", "4", "5"], ["6", "7", "8"], ["0", "3", "6"], ["1", "4", "7"], ["2", "5", "8"], ["0", "4", "8"], ["2", "4", "6"]]
+WIN_OPTIONS = [["X"+str(c) for c in x] for x in ROWS] + [["O"+str(c) for c in x] for x in ROWS]
+
+def move_after_win(word):
+    for option in WIN_OPTIONS:
+        for opt in itertools.permutations(option):
+            if move_after_win_rec(word, opt):
+                return True
+    return False
+
+
+def move_after_win_rec(word, option):
+    if len(option) == 0:
+        return len(word) > 0
+    if option[0] in word:
+        return move_after_win_rec(word[word.index(option[0])+1:], option[1:])
+    else:
+        return False
 
 accepted_words = []
+move_after_win_list = []
 for index, row in df.iterrows():
-    l_x = [str(y)+str(x) for x,y in zip(range(9),row.tolist()) if y == "X"]
+    l_x = [str(y) + str(x) for x, y in zip(range(9), row.tolist()) if y == "X"]
     l_o = [str(y) + str(x) for x, y in zip(range(9), row.tolist()) if y == "O"]
     for w1 in itertools.permutations(l_x):
         for w2 in itertools.permutations(l_o):
             result = [None] * (len(w1) + len(w2))
             result[::2] = w1
             result[1::2] = w2
-            accepted_words.append(result)
+            if move_after_win(result):
+                move_after_win_list.append(result)
+            else:
+                accepted_words.append(result)
 
 print("size of accepted words:", len(accepted_words))
+print("size of move_after_win_list words:", len(move_after_win_list))
 
 with open("data/accepted_words.csv", "w") as f:
     writer = csv.writer(f)
     writer.writerows(accepted_words)
+
+
+
+
 
 
 def is_legal(word):
@@ -55,7 +82,7 @@ def generate_negative_words_by_length(DICTIONARY, length, size, accepted_words):
     rejected_words = []
     while size > 0:
         word = random_product(DICTIONARY, repeat=length)
-        if not is_legal(word):  # omitted check - word not in accepted_words (looks unnecassiry)
+        if (not is_legal(word)) or move_after_win(word):
             rejected_words.append(word)
             size -= 1
         if size % 10000 == 0:
