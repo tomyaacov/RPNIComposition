@@ -31,7 +31,12 @@ def only_row(row):
         return tuple(new_l)
     return f
 
-transformers = [(only_player, True)] + [(only_cell(i), True) for i in range(9)] + [(only_row(i), True) for i in WIN_OPTIONS]
+def only_row_new(row):
+    def f(word):
+        return tuple([x if x in row else "*" for x in word])
+    return f
+
+transformers = [(only_player, True)] + [(only_cell(i), True) for i in range(9)] + [(only_row_new(i), True) for i in WIN_OPTIONS]
 
 
 def transform(data, f):
@@ -89,8 +94,10 @@ for seq, l in test:
             predicted.append(models[i].initial_state.is_accepting)
     if all(predicted) == l:
         acc_all += 1
-    if any(predicted) == l:
-        acc_any += 1
+    else:
+        print(seq, l)
+    # if any(predicted) == l:
+    #     acc_any += 1
 print("accuracy test all:", acc_all/len(test))
 print("accuracy test any:", acc_any/len(test))
 
