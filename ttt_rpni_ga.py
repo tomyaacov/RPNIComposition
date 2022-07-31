@@ -30,9 +30,6 @@ random.shuffle(DATA)
 TRAIN = DATA[:int(len(DATA) * 0.7)]
 TEST = DATA[int(len(DATA) * 0.3):]
 
-TRAIN = DATA[:1000]
-TEST = DATA[:1000]
-
 
 def _transform(x, code):
     result = [OUTPUT_TOKENS[code[INPUT_TOKENS.index(i)]] for i in x]
