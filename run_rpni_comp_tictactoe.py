@@ -55,7 +55,7 @@ random.shuffle(data)
 
 # train test split
 train = data[:int(len(data) * 0.7)]
-test = data[int(len(data) * 0.3):]
+test = data[int(len(data) * 0.7):]
 
 models = []
 start = time.time()

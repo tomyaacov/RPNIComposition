@@ -11,8 +11,8 @@ OUTPUT_DIM = 3  # maybe it should be more
 OUTPUT_TOKENS = [str(x) for x in range(OUTPUT_DIM+1)]
 POP_SIZE_1 = 300
 POP_SIZE_2 = 300
-N_GEN_1 = 500
-N_GEN_2 = 500
+N_GEN_1 = 400
+N_GEN_2 = 400
 FIRST_POP = None
 FIRST_POP_MODELS = None
 FIRST_POP_RESULTS = None
@@ -29,8 +29,10 @@ with open("data/" + "rejected_words.csv", 'r') as f:
 random.shuffle(DATA)
 
 # train test split
+TRAIN_FIRST = DATA[:int(len(DATA) * 0.1)]
 TRAIN = DATA[:int(len(DATA) * 0.7)]
 TEST = DATA[int(len(DATA) * 0.7):]
+UNTRAINABLE = set()
 
 
 def _transform(x, code):
@@ -46,42 +48,16 @@ def sample_individual(ind, size, dim):
     return ind([random.randint(0, dim) for _ in range(size)])
     #return ind([random.randint(0, dim) for _ in range(size)] + [random.randint(0, 2)])
 
-def learn_model(individual):
-    new_l = True
-    transformed_data = transform(TRAIN, list(individual))
-    positive = set([x[0] for x in transformed_data if x[1]])
-    negative = set([x[0] for x in transformed_data if not x[1]])
-    new_positive = set()
-    new_negative = set()
-    conflict = set()
-    for word in positive:
-        if word not in negative:
-            new_positive.add(word)
-        else:
-            conflict.add(word)
-    for word in negative:
-        if word not in positive:
-            new_negative.add(word)
-        else:
-            conflict.add(word)
-    if len(new_positive) == 0 and new_l != True:
-        return  # invalid transformation - all samples negative
-    if len(new_negative) == 0 and new_l != False:
-        return  # invalid transformation - all samples positive
-    new_data = [(x, True) for x in new_positive] + [(x, False) for x in new_negative] \
-               + [(x, new_l) for x in conflict if new_l is not None]
-    random.shuffle(new_data)
-    model = run_RPNI(new_data, automaton_type='dfa', print_info=True)
-    return model
 
-
-def eval_ind(individual):
+def get_transformed_data(individual, data):
     # try:
     #     new_l = [False, True, None][list(individual)[-1]]
     # except IndexError:
     #     print(list(individual))
+    if tuple(individual) in UNTRAINABLE:
+        return
     new_l = True
-    transformed_data = transform(TRAIN, list(individual) )
+    transformed_data = transform(data, list(individual))
     positive = set([x[0] for x in transformed_data if x[1]])
     negative = set([x[0] for x in transformed_data if not x[1]])
     new_positive = set()
@@ -98,12 +74,34 @@ def eval_ind(individual):
         else:
             conflict.add(word)
     if len(new_positive) == 0 and new_l != True:
-        return 0,
+        UNTRAINABLE.add(tuple(individual))
+        return
     if len(new_negative) == 0 and new_l != False:
-        return 0,
+        UNTRAINABLE.add(tuple(individual))
+        return
     new_data = [(x, True) for x in new_positive] + [(x, False) for x in new_negative] \
                + [(x, new_l) for x in conflict if new_l is not None]
-    return 2*(1/len(new_data)),
+    return new_data
+
+def learn_model(individual):
+    if tuple(individual) in UNTRAINABLE:
+        return
+    new_data = get_transformed_data(individual, TRAIN)
+    if new_data is None:
+        UNTRAINABLE.add(tuple(individual))
+        return
+    else:
+        random.shuffle(new_data)
+        model = run_RPNI(new_data, automaton_type='dfa', print_info=True)
+        return model
+
+
+def eval_ind(individual):
+    new_data = get_transformed_data(individual, TRAIN_FIRST)
+    if new_data is None:
+        return 0,
+    else:
+        return 2*(1/len(new_data)),
 
 
 def run_first_ga():
@@ -152,26 +150,30 @@ def eval_comb(individual):
     return acc_all/len(TEST), sum(individual)/len(individual)
 
 
-def run_second_ga():
+def transformation_to_model(t, i):
     global FIRST_POP_MODELS, FIRST_POP_RESULTS
-    FIRST_POP_MODELS = []
-    FIRST_POP_RESULTS = []
-    for t in FIRST_POP:
-        model = learn_model(t)
-        if model is None:
-            FIRST_POP_MODELS.append(model)
-            FIRST_POP_RESULTS.append(None)
-        else:
-            model.make_input_complete('self_loop')
-            FIRST_POP_MODELS.append(model)
-            predicted = []
-            for seq, l in TEST:
-                new_word = _transform(seq, t)
-                if len(new_word) > 0:
-                    predicted.append(model.execute_sequence(model.initial_state, new_word)[-1])
-                else:
-                    predicted.append(model.initial_state.is_accepting)
-            FIRST_POP_RESULTS.append(predicted)
+    model = learn_model(t)
+    if model is None:
+        FIRST_POP_MODELS[i] = model
+        FIRST_POP_RESULTS[i] = None
+    else:
+        model.make_input_complete('self_loop')
+        FIRST_POP_MODELS[i] = model
+        predicted = []
+        for seq, l in TEST:
+            new_word = _transform(seq, t)
+            if len(new_word) > 0:
+                predicted.append(model.execute_sequence(model.initial_state, new_word)[-1])
+            else:
+                predicted.append(model.initial_state.is_accepting)
+        FIRST_POP_RESULTS[i] = predicted
+
+
+def run_second_ga():
+
+    with multiprocessing.Pool() as p:
+        p.starmap(transformation_to_model, [(t, i) for i, t in enumerate(FIRST_POP)])
+
     creator.create("FitnessMulti", base.Fitness, weights=(100.0, -1.0))
     creator.create("Individual", list, fitness=creator.FitnessMulti)
     toolbox = base.Toolbox()
@@ -204,5 +206,7 @@ def run_second_ga():
 
 if __name__ == "__main__":
     FIRST_POP = run_first_ga()
+    FIRST_POP_MODELS = [None] * len(FIRST_POP)
+    FIRST_POP_RESULTS = [None] * len(FIRST_POP)
     second_pop, hof = run_second_ga()
     print(hof)
